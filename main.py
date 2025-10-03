@@ -8,9 +8,10 @@ from google.cloud import storage
 import os
 from pathlib import Path
 import streamlit as st
+import tempfile
+import json
 
 # Load environment variables from a .env file (if present)
-# We'll use python-dotenv if available but keep working if it's not installed.
 try:
     from dotenv import load_dotenv
     env_path = Path(__file__).parent / '.env'
@@ -19,14 +20,68 @@ except Exception:
     # python-dotenv not installed; environment variables must be set externally
     pass
 
-# Set up Google Cloud credentials: prefer existing environment variable, otherwise you
-# can put GOOGLE_APPLICATION_CREDENTIALS in a .env file at the project root.
-creds = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-if not creds:
-    # Optionally set a default path (commented out). It's better to set via .env or OS env.
-    # os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r"C:\path\to\your\credentials.json"
+
+# Helper: ensure GOOGLE_APPLICATION_CREDENTIALS is set.
+# Supports three patterns:
+# 1) Local path in env var (GOOGLE_APPLICATION_CREDENTIALS)
+# 2) JSON contents provided via env var or Streamlit secret (GOOGLE_SERVICE_ACCOUNT)
+# 3) Streamlit's st.secrets dict with key GOOGLE_SERVICE_ACCOUNT
+def ensure_gcloud_credentials():
+    # 1) If already set and the file exists, we're done.
+    gac_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+    if gac_path and Path(gac_path).exists():
+        return
+
+    # 2) Check for an env var containing JSON or a path
+    candidate = os.environ.get('GOOGLE_SERVICE_ACCOUNT') or os.environ.get('GOOGLE_CLOUD_SERVICE_ACCOUNT')
+    if candidate:
+        c = candidate.strip()
+        if c.startswith('{'):
+            # JSON contents -> write to temp file
+            fd, temp_path = tempfile.mkstemp(suffix='.json')
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                f.write(c)
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_path
+            return
+        else:
+            # assume it's a path
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = c
+            return
+
+    # 3) If running in Streamlit, check st.secrets
+    try:
+        secrets = st.secrets
+        # common secret key name: GOOGLE_SERVICE_ACCOUNT
+        secret_json = None
+        if isinstance(secrets, dict):
+            secret_json = secrets.get('GOOGLE_SERVICE_ACCOUNT') or secrets.get('GOOGLE_CLOUD_SERVICE_ACCOUNT')
+        else:
+            # st.secrets supports attribute access; try both
+            secret_json = getattr(secrets, 'GOOGLE_SERVICE_ACCOUNT', None) or getattr(secrets, 'GOOGLE_CLOUD_SERVICE_ACCOUNT', None)
+
+        if secret_json:
+            s = secret_json.strip()
+            if s.startswith('{'):
+                fd, temp_path = tempfile.mkstemp(suffix='.json')
+                with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                    f.write(s)
+                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_path
+                return
+            else:
+                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = s
+                return
+    except Exception:
+        # st may not be available or secrets not set
+        pass
+
+
+# Run the helper to ensure credentials are available; if not, raise a clear error for local dev.
+ensure_gcloud_credentials()
+
+# Final check
+if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
     raise RuntimeError(
-        'GOOGLE_APPLICATION_CREDENTIALS is not set. Put the JSON path in a .env file or set the environment variable.'
+        'GOOGLE_APPLICATION_CREDENTIALS not configured. Locally, create a .env with the path. On Streamlit Cloud, add the service account JSON as a secret named GOOGLE_SERVICE_ACCOUNT.'
     )
 
 # Initialize BigQuery and Storage clients

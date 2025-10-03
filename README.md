@@ -42,4 +42,16 @@ if gcreds and gcreds.strip().startswith('{'):
 ```
 
 For other hosts, consult their secrets documentation to inject either the path or the JSON contents.
+# Security notes
+
+- If a service-account JSON was accidentally committed, rotate the key immediately in the Google Cloud Console (IAM & Admin → Service Accounts → Keys → Delete key / Create new key).
+- To remove secrets from your Git history, use the BFG Repo Cleaner or `git filter-repo`. Example (BFG):
+
+    1. Install BFG: https://rtyley.github.io/bfg-repo-cleaner/
+    2. Run: bfg --delete-files "*.json"
+    3. Follow with: git reflog expire --expire=now --all && git gc --prune=now --aggressive
+
+- After cleaning history, force-push to the remote (only if you understand the consequences):
+    git push --force
+
 # retail-store-analysis
