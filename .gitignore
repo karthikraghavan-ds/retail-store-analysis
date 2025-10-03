@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+env/
+ai/
+
+# Environment variable files
+.env
+
+# Service account keys / JSON credentials
+*.json
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+Desktop.ini

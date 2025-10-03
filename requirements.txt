@@ -1,0 +1,8 @@
+streamlit
+pandas
+numpy
+matplotlib
+seaborn
+google-cloud-bigquery
+google-cloud-storage
+python-dotenv
