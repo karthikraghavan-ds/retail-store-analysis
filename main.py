@@ -19,7 +19,8 @@ storage_client = storage.Client(credentials=credentials)
 
 
 st.title("Retail Store Analysis")
-
+st.header("", divider="blue")
+st.text("Data type of all columns in the customers table details on the selected table",)
 radio = st.radio("Select the table to view", ("customers", "geolocation", "order_items", "order_reviews", "orders", "payments", "sellers", "products"))
 if radio == "customers":
     query1 = f"""
@@ -68,9 +69,8 @@ elif radio == "products":
     WHERE table_name = 'products'"""
 
 
-st.header("", divider="blue")
+
 # Display dataframe in Streamlit
-st.text("Data type of all columns in the customers table details on the selected table",)
 st.code(query1  , language='sql')
 st.dataframe(client.query(query1).to_dataframe())
 
