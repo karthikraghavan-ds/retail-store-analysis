@@ -15,7 +15,8 @@ credentials = service_account.Credentials.from_service_account_info(
 
 # Initialize BigQuery and Storage clients
 client = bigquery.Client(credentials=credentials)
-storage_client = storage.Client()
+storage_client = storage.Client.from_service_account_info(credentials)
+
 
 st.title("Retail Store Analysis")
 
