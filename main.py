@@ -2,90 +2,19 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-# ...existing code...
 from google.cloud import bigquery
 from google.cloud import storage
 import os
 from pathlib import Path
 import streamlit as st
-import tempfile
-import json
+from google.oauth2 import service_account
+credentials = service_account.Credentials.from_service_account_info(
+    st.secrets["gcp_service_account"]
+)
 
-# Load environment variables from a .env file (if present)
-try:
-    from dotenv import load_dotenv
-    env_path = Path(__file__).parent / '.env'
-    load_dotenv(dotenv_path=env_path)
-except Exception:
-    # python-dotenv not installed; environment variables must be set externally
-    pass
-
-
-# Helper: ensure GOOGLE_APPLICATION_CREDENTIALS is set.
-# Supports three patterns:
-# 1) Local path in env var (GOOGLE_APPLICATION_CREDENTIALS)
-# 2) JSON contents provided via env var or Streamlit secret (GOOGLE_SERVICE_ACCOUNT)
-# 3) Streamlit's st.secrets dict with key GOOGLE_SERVICE_ACCOUNT
-def ensure_gcloud_credentials():
-    # 1) If already set and the file exists, we're done.
-    gac_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-    if gac_path and Path(gac_path).exists():
-        return
-
-    # 2) Check for an env var containing JSON or a path
-    candidate = os.environ.get('GOOGLE_SERVICE_ACCOUNT') or os.environ.get('GOOGLE_CLOUD_SERVICE_ACCOUNT')
-    if candidate:
-        c = candidate.strip()
-        if c.startswith('{'):
-            # JSON contents -> write to temp file
-            fd, temp_path = tempfile.mkstemp(suffix='.json')
-            with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                f.write(c)
-            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_path
-            return
-        else:
-            # assume it's a path
-            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = c
-            return
-
-    # 3) If running in Streamlit, check st.secrets
-    try:
-        secrets = st.secrets
-        # common secret key name: GOOGLE_SERVICE_ACCOUNT
-        secret_json = None
-        if isinstance(secrets, dict):
-            secret_json = secrets.get('GOOGLE_SERVICE_ACCOUNT') or secrets.get('GOOGLE_CLOUD_SERVICE_ACCOUNT')
-        else:
-            # st.secrets supports attribute access; try both
-            secret_json = getattr(secrets, 'GOOGLE_SERVICE_ACCOUNT', None) or getattr(secrets, 'GOOGLE_CLOUD_SERVICE_ACCOUNT', None)
-
-        if secret_json:
-            s = secret_json.strip()
-            if s.startswith('{'):
-                fd, temp_path = tempfile.mkstemp(suffix='.json')
-                with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                    f.write(s)
-                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_path
-                return
-            else:
-                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = s
-                return
-    except Exception:
-        # st may not be available or secrets not set
-        pass
-
-
-# Run the helper to ensure credentials are available; if not, raise a clear error for local dev.
-ensure_gcloud_credentials()
-
-# Final check
-if not os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
-    raise RuntimeError(
-        'GOOGLE_APPLICATION_CREDENTIALS not configured. Locally, create a .env with the path. On Streamlit Cloud, add the service account JSON as a secret named GOOGLE_SERVICE_ACCOUNT.'
-    )
 
 # Initialize BigQuery and Storage clients
-client = bigquery.Client()
+client = bigquery.Client(credentials=credentials)
 storage_client = storage.Client()
 
 st.title("Retail Store Analysis")
